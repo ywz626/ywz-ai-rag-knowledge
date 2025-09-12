@@ -36,3 +36,5 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+/ai-rag-knowledge-app/src/main/resources/

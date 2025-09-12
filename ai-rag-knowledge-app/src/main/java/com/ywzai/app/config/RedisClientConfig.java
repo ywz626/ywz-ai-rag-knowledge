@@ -1,4 +1,4 @@
-package cn.bugstack.xfg.dev.tech.config;
+package com.ywzai.app.config;
 
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;

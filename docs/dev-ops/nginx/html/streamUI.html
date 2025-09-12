@@ -42,60 +42,125 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
+        
+        /* 聊天列表样式 */
+        .chat-item {
+            transition: all 0.2s ease;
+        }
+        
+        .chat-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-item.active {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+        
+        .chat-item.active .chat-title {
+            color: white;
+        }
+        
+        .chat-item.active .text-gray-500 {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
     </style>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col">
-    <!-- 头部 -->
-    <header class="bg-white shadow-sm border-b border-gray-200 p-4">
-        <div class="max-w-4xl mx-auto">
-            <h1 class="text-2xl font-bold text-gray-800">AI对话助手</h1>
-            <p class="text-sm text-gray-600 mt-1">基于DeepSeek模型的智能对话系统</p>
+<body class="bg-gray-100 h-screen flex">
+    <!-- 左侧聊天列表 -->
+    <div id="sidebar" class="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <!-- 头部操作区 -->
+        <div class="p-4 border-b border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800">聊天列表</h2>
+                <div class="flex space-x-2">
+                    <button id="uploadKnowledgeBtn" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm flex items-center space-x-1" title="上传知识库文件">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <span>知识库</span>
+                    </button>
+                    <button id="newChatBtn" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        新建聊天
+                    </button>
+                </div>
+            </div>
+            
+            <!-- RAG标签选择 -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">知识库</label>
+                <select id="ragTagSelect" title="选择知识库" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    <option value="">不使用知识库</option>
+                </select>
+            </div>
         </div>
-    </header>
+        
+        <!-- 聊天列表 -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar">
+            <div id="chatList" class="p-2">
+                <!-- 聊天项将在这里动态添加 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主聊天区域 -->
+    <div class="flex-1 flex flex-col">
+        <!-- 头部 -->
+        <header class="bg-white shadow-sm border-b border-gray-200 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">AI对话助手</h1>
+                    <p class="text-sm text-gray-600 mt-1">基于DeepSeek模型的智能对话系统</p>
+                </div>
+                <div id="currentChatTitle" class="text-lg font-medium text-gray-700"></div>
+            </div>
+        </header>
 
-    <!-- 主内容区域 -->
-    <main class="flex-1 flex flex-col max-w-4xl mx-auto w-full">
-        <!-- 对话区域 -->
-        <div id="chatContainer" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-gray-50">
-            <div id="messageList" class="space-y-4">
-                <!-- 欢迎消息 -->
-                <div class="flex justify-center">
-                    <div class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm">
-                        欢迎使用AI对话助手！请输入您的问题开始对话。
+        <!-- 主内容区域 -->
+        <main class="flex-1 flex flex-col">
+            <!-- 对话区域 -->
+            <div id="chatContainer" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-gray-50">
+                <div id="messageList" class="space-y-4 max-w-4xl mx-auto">
+                    <!-- 欢迎消息 -->
+                    <div class="flex justify-center">
+                        <div class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm">
+                            欢迎使用AI对话助手！请输入您的问题开始对话。
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- 输入区域 -->
-        <div class="bg-white border-t border-gray-200 p-4">
-            <div class="flex space-x-3">
-                <!-- 模型选择 -->
-                <select id="modelSelect" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
-                    <option value="deepseek-r1:7b">deepseek-r1:7b</option>
-                    <option value="deepseek-r1:14b">deepseek-r1:14b</option>
-                </select>
-                
-                <!-- 输入框 -->
-                <input 
-                    type="text" 
-                    id="messageInput" 
-                    placeholder="请输入您的问题..." 
-                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                
-                <!-- 发送按钮 -->
-                <button 
-                    id="sendButton" 
-                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                    <span id="sendButtonText">发送</span>
-                    <span id="sendButtonLoading" class="hidden">发送中...</span>
-                </button>
+            <!-- 输入区域 -->
+            <div class="bg-white border-t border-gray-200 p-4">
+                <div class="max-w-4xl mx-auto flex space-x-3">
+                    <!-- 模型选择 -->
+                    <select id="modelSelect" title="选择AI模型" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
+                        <option value="deepseek-r1:7b">deepseek-r1:7b</option>
+                        <option value="deepseek-r1:14b">deepseek-r1:14b</option>
+                    </select>
+                    
+                    <!-- 输入框 -->
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="请输入您的问题..." 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                    
+                    <!-- 发送按钮 -->
+                    <button 
+                        id="sendButton" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <span id="sendButtonText">发送</span>
+                        <span id="sendButtonLoading" class="hidden">发送中...</span>
+                    </button>
+                </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
     <script>
         class ChatApp {
@@ -107,11 +172,21 @@
                 this.messageList = document.getElementById('messageList');
                 this.chatContainer = document.getElementById('chatContainer');
                 this.modelSelect = document.getElementById('modelSelect');
+                this.ragTagSelect = document.getElementById('ragTagSelect');
+                this.newChatBtn = document.getElementById('newChatBtn');
+                this.uploadKnowledgeBtn = document.getElementById('uploadKnowledgeBtn');
+                this.chatList = document.getElementById('chatList');
+                this.currentChatTitle = document.getElementById('currentChatTitle');
                 
                 this.isStreaming = false;
                 this.currentEventSource = null;
+                this.chats = []; // 存储所有聊天
+                this.currentChatId = null; // 当前选中的聊天ID
+                this.chatIdCounter = 1; // 聊天ID计数器
                 
                 this.initEventListeners();
+                this.loadRagTags();
+                this.createDefaultChat();
             }
             
             initEventListeners() {
@@ -127,7 +202,17 @@
                     }
                 });
                 
-                // 输入框输入事件，动态调整高度
+                // 新建聊天按钮
+                this.newChatBtn.addEventListener('click', () => {
+                    this.createNewChat();
+                });
+                
+                // 知识库上传按钮
+                this.uploadKnowledgeBtn.addEventListener('click', () => {
+                    this.openUploadPage();
+                });
+                
+                // 输入框输入事件
                 this.messageInput.addEventListener('input', (e) => {
                     // 可以在这里添加输入验证逻辑
                 });
@@ -162,7 +247,7 @@
                 }, 100);
             }
             
-            addUserMessage(message) {
+            addUserMessage(message, saveToChat = true) {
                 const messageElement = document.createElement('div');
                 messageElement.className = 'flex justify-end message-fade-in';
                 messageElement.innerHTML = `
@@ -173,6 +258,25 @@
                 
                 this.messageList.appendChild(messageElement);
                 this.scrollToBottom();
+                
+                // 保存到当前聊天
+                if (saveToChat) {
+                    const currentChat = this.chats.find(c => c.id === this.currentChatId);
+                    if (currentChat) {
+                        currentChat.messages.push({
+                            type: 'user',
+                            content: message,
+                            timestamp: new Date()
+                        });
+                        
+                        // 如果是第一条消息，更新聊天标题
+                        if (currentChat.messages.length === 1) {
+                            currentChat.title = message.length > 20 ? message.substring(0, 20) + '...' : message;
+                            this.renderChatList();
+                            this.updateChatTitle();
+                        }
+                    }
+                }
             }
             
             addAssistantMessage() {
@@ -305,6 +409,19 @@
             finishStreaming() {
                 console.log('结束流式输出');
                 
+                // 保存AI回复到当前聊天
+                const currentResponse = document.getElementById('currentResponse');
+                if (currentResponse && currentResponse.textContent.trim()) {
+                    const currentChat = this.chats.find(c => c.id === this.currentChatId);
+                    if (currentChat) {
+                        currentChat.messages.push({
+                            type: 'assistant',
+                            content: currentResponse.textContent.trim(),
+                            timestamp: new Date()
+                        });
+                    }
+                }
+                
                 // 强制关闭连接
                 this.forceCloseConnection();
                 
@@ -383,6 +500,278 @@
                 
                 // 去掉开头和结尾的空白字符
                 return filtered.trim();
+            }
+            
+            // 加载RAG标签列表
+            async loadRagTags() {
+                try {
+                    const response = await fetch('http://localhost:8090/api/v1/rag/query_rag_tag_list');
+                    const result = await response.json();
+                    
+                    if (result.code === '0000' && result.data) {
+                        result.data.forEach(tag => {
+                            const option = document.createElement('option');
+                            option.value = tag;
+                            option.textContent = tag;
+                            this.ragTagSelect.appendChild(option);
+                        });
+                    }
+                } catch (error) {
+                    console.error('加载RAG标签失败:', error);
+                }
+            }
+            
+            // 创建默认聊天
+            createDefaultChat() {
+                const chat = {
+                    id: this.chatIdCounter++,
+                    title: '新对话',
+                    messages: [],
+                    createdAt: new Date()
+                };
+                
+                this.chats.push(chat);
+                this.currentChatId = chat.id;
+                this.renderChatList();
+                this.updateChatTitle();
+                this.clearMessageList();
+            }
+            
+            // 创建新聊天
+            createNewChat() {
+                const chat = {
+                    id: this.chatIdCounter++,
+                    title: `新对话 ${this.chats.length + 1}`,
+                    messages: [],
+                    createdAt: new Date()
+                };
+                
+                this.chats.push(chat);
+                this.currentChatId = chat.id;
+                this.renderChatList();
+                this.updateChatTitle();
+                this.clearMessageList();
+                
+                // 如果正在流式输出，停止当前输出
+                if (this.isStreaming) {
+                    this.forceCloseConnection();
+                    this.setStreamingState(false);
+                }
+            }
+            
+            // 渲染聊天列表
+            renderChatList() {
+                this.chatList.innerHTML = '';
+                
+                this.chats.forEach(chat => {
+                    const chatItem = document.createElement('div');
+                    chatItem.className = `chat-item p-3 mb-2 rounded-lg cursor-pointer transition-colors ${
+                        chat.id === this.currentChatId ? 'bg-blue-100 border border-blue-300' : 'bg-gray-50 hover:bg-gray-100'
+                    }`;
+                    
+                    chatItem.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <div class="chat-title text-sm font-medium text-gray-800 truncate">${this.escapeHtml(chat.title)}</div>
+                                <div class="text-xs text-gray-500 mt-1">${this.formatDate(chat.createdAt)}</div>
+                            </div>
+                            <div class="chat-actions flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button class="rename-btn p-1 text-gray-400 hover:text-blue-600 transition-colors" title="重命名">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                <button class="delete-btn p-1 text-gray-400 hover:text-red-600 transition-colors" title="删除">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 添加点击事件
+                    chatItem.addEventListener('click', (e) => {
+                        if (!e.target.closest('.chat-actions')) {
+                            this.selectChat(chat.id);
+                        }
+                    });
+                    
+                    // 添加悬停效果
+                    chatItem.addEventListener('mouseenter', () => {
+                        const actions = chatItem.querySelector('.chat-actions');
+                        actions.classList.remove('opacity-0');
+                        actions.classList.add('opacity-100');
+                    });
+                    
+                    chatItem.addEventListener('mouseleave', () => {
+                        const actions = chatItem.querySelector('.chat-actions');
+                        actions.classList.add('opacity-0');
+                        actions.classList.remove('opacity-100');
+                    });
+                    
+                    // 重命名按钮事件
+                    chatItem.querySelector('.rename-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.renameChat(chat.id);
+                    });
+                    
+                    // 删除按钮事件
+                    chatItem.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.deleteChat(chat.id);
+                    });
+                    
+                    this.chatList.appendChild(chatItem);
+                });
+            }
+            
+            // 选择聊天
+            selectChat(chatId) {
+                // 如果正在流式输出，停止当前输出
+                if (this.isStreaming) {
+                    this.forceCloseConnection();
+                    this.setStreamingState(false);
+                }
+                
+                this.currentChatId = chatId;
+                this.renderChatList();
+                this.updateChatTitle();
+                this.loadChatMessages();
+            }
+            
+            // 重命名聊天
+            renameChat(chatId) {
+                const chat = this.chats.find(c => c.id === chatId);
+                if (!chat) return;
+                
+                const newTitle = prompt('请输入新的聊天名称:', chat.title);
+                if (newTitle && newTitle.trim()) {
+                    chat.title = newTitle.trim();
+                    this.renderChatList();
+                    if (chat.id === this.currentChatId) {
+                        this.updateChatTitle();
+                    }
+                }
+            }
+            
+            // 删除聊天
+            deleteChat(chatId) {
+                if (this.chats.length <= 1) {
+                    alert('至少要保留一个聊天');
+                    return;
+                }
+                
+                if (confirm('确定要删除这个聊天吗？')) {
+                    const chatIndex = this.chats.findIndex(c => c.id === chatId);
+                    if (chatIndex !== -1) {
+                        this.chats.splice(chatIndex, 1);
+                        
+                        // 如果删除的是当前聊天，切换到其他聊天
+                        if (chatId === this.currentChatId) {
+                            this.currentChatId = this.chats[0].id;
+                            this.loadChatMessages();
+                        }
+                        
+                        this.renderChatList();
+                        this.updateChatTitle();
+                    }
+                }
+            }
+            
+            // 更新聊天标题
+            updateChatTitle() {
+                const currentChat = this.chats.find(c => c.id === this.currentChatId);
+                if (currentChat) {
+                    this.currentChatTitle.textContent = currentChat.title;
+                }
+            }
+            
+            // 加载聊天消息
+            loadChatMessages() {
+                const currentChat = this.chats.find(c => c.id === this.currentChatId);
+                if (!currentChat) return;
+                
+                this.clearMessageList();
+                
+                currentChat.messages.forEach(message => {
+                    if (message.type === 'user') {
+                        this.addUserMessage(message.content, false);
+                    } else {
+                        this.addAssistantMessage(message.content, false);
+                    }
+                });
+            }
+            
+            // 清空消息列表
+            clearMessageList() {
+                this.messageList.innerHTML = `
+                    <div class="flex justify-center">
+                        <div class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm">
+                            欢迎使用AI对话助手！请输入您的问题开始对话。
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 格式化日期
+            formatDate(date) {
+                const now = new Date();
+                const diff = now - date;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+                
+                if (minutes < 1) return '刚刚';
+                if (minutes < 60) return `${minutes}分钟前`;
+                if (hours < 24) return `${hours}小时前`;
+                if (days < 7) return `${days}天前`;
+                return date.toLocaleDateString();
+            }
+            
+            // 打开知识库上传页面
+            openUploadPage() {
+                // 在新窗口打开上传页面
+                window.open('./upload.html', '_blank');
+            }
+            
+            addAssistantMessage(content = null, saveToChat = true) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'flex justify-start message-fade-in';
+                
+                if (content) {
+                    // 已有内容，直接显示
+                    messageElement.innerHTML = `
+                        <div class="max-w-xs lg:max-w-md px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <p class="text-sm text-gray-800 whitespace-pre-wrap">${this.escapeHtml(content)}</p>
+                        </div>
+                    `;
+                } else {
+                    // 没有内容，显示打字指示器
+                    messageElement.innerHTML = `
+                        <div class="max-w-xs lg:max-w-md px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <p class="text-sm text-gray-800 whitespace-pre-wrap" id="currentResponse"></p>
+                            <span class="typing-indicator">○</span>
+                        </div>
+                    `;
+                }
+                
+                this.messageList.appendChild(messageElement);
+                this.scrollToBottom();
+                
+                if (content && saveToChat) {
+                    // 保存到当前聊天
+                    const currentChat = this.chats.find(c => c.id === this.currentChatId);
+                    if (currentChat) {
+                        currentChat.messages.push({
+                            type: 'assistant',
+                            content: content,
+                            timestamp: new Date()
+                        });
+                    }
+                }
+                
+                return content ? null : messageElement.querySelector('#currentResponse');
             }
         }
         

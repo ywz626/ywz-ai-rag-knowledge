@@ -89,9 +89,17 @@
             
             <!-- RAG标签选择 -->
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">知识库</label>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">知识库</label>
+                    <button id="refreshRagBtn" class="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1" title="刷新知识库列表">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span>刷新</span>
+                    </button>
+                </div>
                 <select id="ragTagSelect" title="选择知识库" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-                    <option value="">不使用知识库</option>
+                    <option value="">加载中...</option>
                 </select>
             </div>
         </div>
@@ -175,6 +183,7 @@
                 this.ragTagSelect = document.getElementById('ragTagSelect');
                 this.newChatBtn = document.getElementById('newChatBtn');
                 this.uploadKnowledgeBtn = document.getElementById('uploadKnowledgeBtn');
+                this.refreshRagBtn = document.getElementById('refreshRagBtn');
                 this.chatList = document.getElementById('chatList');
                 this.currentChatTitle = document.getElementById('currentChatTitle');
                 
@@ -210,6 +219,11 @@
                 // 知识库上传按钮
                 this.uploadKnowledgeBtn.addEventListener('click', () => {
                     this.openUploadPage();
+                });
+                
+                // 刷新知识库列表按钮
+                this.refreshRagBtn.addEventListener('click', () => {
+                    this.loadRagTags();
                 });
                 
                 // 输入框输入事件
@@ -248,11 +262,14 @@
             }
             
             addUserMessage(message, saveToChat = true) {
+                const ragTag = this.ragTagSelect.value.trim();
+                const ragDisplay = ragTag ? `<span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full ml-2">📚 ${ragTag}</span>` : '';
+                
                 const messageElement = document.createElement('div');
                 messageElement.className = 'flex justify-end message-fade-in';
                 messageElement.innerHTML = `
                     <div class="max-w-xs lg:max-w-md px-4 py-2 bg-blue-600 text-white rounded-lg">
-                        <p class="text-sm whitespace-pre-wrap">${this.escapeHtml(message)}</p>
+                        <p class="text-sm whitespace-pre-wrap">${this.escapeHtml(message)}${ragDisplay}</p>
                     </div>
                 `;
                 
@@ -305,10 +322,20 @@
                 let accumulatedContent = '';
                 let isFinished = false;
                 
+                // 获取选中的知识库
+                const ragTag = this.ragTagSelect.value.trim();
+                
                 // 构建API URL
-                const apiUrl = `http://localhost:8090/api/v1/ollama/generate_stream?model=${encodeURIComponent(model)}&message=${encodeURIComponent(message)}`;
+                let apiUrl = `http://localhost:8090/api/v1/ollama/generate_stream?model=${encodeURIComponent(model)}&message=${encodeURIComponent(message)}`;
+                
+                // 如果选择了知识库，添加ragTag参数
+                if (ragTag) {
+                    apiUrl += `&ragTag=${encodeURIComponent(ragTag)}`;
+                }
                 
                 console.log('开始新的流式请求:', apiUrl);
+                console.log('使用的知识库:', ragTag || '无');
+                console.log('使用的模型:', model);
                 
                 try {
                     // 创建新的EventSource连接
@@ -505,20 +532,65 @@
             // 加载RAG标签列表
             async loadRagTags() {
                 try {
+                    console.log('正在加载知识库列表...');
                     const response = await fetch('http://localhost:8090/api/v1/rag/query_rag_tag_list');
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const result = await response.json();
+                    console.log('知识库列表响应:', result);
                     
                     if (result.code === '0000' && result.data) {
+                        // 清空现有选项（保留"不使用知识库"选项）
+                        this.ragTagSelect.innerHTML = '<option value="">不使用知识库</option>';
+                        
+                        // 添加知识库选项
                         result.data.forEach(tag => {
                             const option = document.createElement('option');
                             option.value = tag;
                             option.textContent = tag;
                             this.ragTagSelect.appendChild(option);
                         });
+                        
+                        console.log(`成功加载 ${result.data.length} 个知识库`);
+                    } else {
+                        console.warn('获取知识库列表失败:', result.info || '未知错误');
+                        this.showRagLoadError('获取知识库列表失败');
                     }
                 } catch (error) {
                     console.error('加载RAG标签失败:', error);
+                    this.showRagLoadError('无法连接到服务器，请检查网络连接');
                 }
+            }
+            
+            // 显示知识库加载错误
+            showRagLoadError(message) {
+                // 在知识库选择框下方显示错误信息
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'mt-2 text-xs text-red-600 flex items-center';
+                errorDiv.innerHTML = `
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    ${message}
+                `;
+                
+                // 将错误信息添加到知识库选择框的父元素中
+                const ragContainer = this.ragTagSelect.parentElement;
+                const existingError = ragContainer.querySelector('.text-red-600');
+                if (existingError) {
+                    existingError.remove();
+                }
+                ragContainer.appendChild(errorDiv);
+                
+                // 3秒后自动移除错误信息
+                setTimeout(() => {
+                    if (errorDiv.parentElement) {
+                        errorDiv.remove();
+                    }
+                }, 3000);
             }
             
             // 创建默认聊天

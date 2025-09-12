@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI对话助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定义滚动条样式 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* 消息动画 */
+        .message-fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 打字机效果 */
+        .typing-indicator {
+            display: inline-block;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+    <!-- 头部 -->
+    <header class="bg-white shadow-sm border-b border-gray-200 p-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-2xl font-bold text-gray-800">AI对话助手</h1>
+            <p class="text-sm text-gray-600 mt-1">基于DeepSeek模型的智能对话系统</p>
+        </div>
+    </header>
+
+    <!-- 主内容区域 -->
+    <main class="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+        <!-- 对话区域 -->
+        <div id="chatContainer" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-gray-50">
+            <div id="messageList" class="space-y-4">
+                <!-- 欢迎消息 -->
+                <div class="flex justify-center">
+                    <div class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm">
+                        欢迎使用AI对话助手！请输入您的问题开始对话。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="bg-white border-t border-gray-200 p-4">
+            <div class="flex space-x-3">
+                <!-- 模型选择 -->
+                <select id="modelSelect" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="deepseek-r1:1.5b">deepseek-r1:1.5b</option>
+                    <option value="deepseek-r1:7b">deepseek-r1:7b</option>
+                    <option value="deepseek-r1:14b">deepseek-r1:14b</option>
+                </select>
+                
+                <!-- 输入框 -->
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    placeholder="请输入您的问题..." 
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                
+                <!-- 发送按钮 -->
+                <button 
+                    id="sendButton" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span id="sendButtonText">发送</span>
+                    <span id="sendButtonLoading" class="hidden">发送中...</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        class ChatApp {
+            constructor() {
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.sendButtonText = document.getElementById('sendButtonText');
+                this.sendButtonLoading = document.getElementById('sendButtonLoading');
+                this.messageList = document.getElementById('messageList');
+                this.chatContainer = document.getElementById('chatContainer');
+                this.modelSelect = document.getElementById('modelSelect');
+                
+                this.isStreaming = false;
+                this.currentEventSource = null;
+                
+                this.initEventListeners();
+            }
+            
+            initEventListeners() {
+                // 发送按钮点击事件
+                this.sendButton.addEventListener('click', () => {
+                    this.handleSendMessage();
+                });
+                
+                // 输入框回车事件
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.handleSendMessage();
+                    }
+                });
+                
+                // 输入框输入事件，动态调整高度
+                this.messageInput.addEventListener('input', (e) => {
+                    // 可以在这里添加输入验证逻辑
+                });
+            }
+            
+            handleSendMessage() {
+                const message = this.messageInput.value.trim();
+                const model = this.modelSelect.value;
+                
+                if (!message) {
+                    return;
+                }
+                
+                console.log('发送消息:', message);
+                
+                // 如果正在流式输出，先停止
+                if (this.isStreaming) {
+                    console.log('打断当前对话');
+                    this.forceCloseConnection();
+                    this.setStreamingState(false);
+                }
+                
+                // 添加用户消息到界面
+                this.addUserMessage(message);
+                
+                // 清空输入框
+                this.messageInput.value = '';
+                
+                // 等待一小段时间再开始新请求，确保之前的连接完全关闭
+                setTimeout(() => {
+                    this.startStreamingRequest(model, message);
+                }, 100);
+            }
+            
+            addUserMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'flex justify-end message-fade-in';
+                messageElement.innerHTML = `
+                    <div class="max-w-xs lg:max-w-md px-4 py-2 bg-blue-600 text-white rounded-lg">
+                        <p class="text-sm whitespace-pre-wrap">${this.escapeHtml(message)}</p>
+                    </div>
+                `;
+                
+                this.messageList.appendChild(messageElement);
+                this.scrollToBottom();
+            }
+            
+            addAssistantMessage() {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'flex justify-start message-fade-in';
+                messageElement.innerHTML = `
+                    <div class="max-w-xs lg:max-w-md px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+                        <p class="text-sm text-gray-800 whitespace-pre-wrap" id="currentResponse"></p>
+                        <span class="typing-indicator">▋</span>
+                    </div>
+                `;
+                
+                this.messageList.appendChild(messageElement);
+                this.scrollToBottom();
+                return messageElement.querySelector('#currentResponse');
+            }
+            
+            startStreamingRequest(model, message) {
+                // 强制关闭所有现有连接
+                this.forceCloseConnection();
+                
+                this.setStreamingState(true);
+                
+                // 添加AI回复消息容器
+                const responseElement = this.addAssistantMessage();
+                let accumulatedContent = '';
+                let isFinished = false;
+                
+                // 构建API URL
+                const apiUrl = `http://localhost:8090/api/v1/ollama/generate_stream?model=${encodeURIComponent(model)}&message=${encodeURIComponent(message)}`;
+                
+                console.log('开始新的流式请求:', apiUrl);
+                
+                try {
+                    // 创建新的EventSource连接
+                    this.currentEventSource = new EventSource(apiUrl);
+                    console.log('EventSource已创建, readyState:', this.currentEventSource.readyState);
+                    
+                    // 连接超时处理
+                    const connectionTimeout = setTimeout(() => {
+                        if (this.currentEventSource && this.currentEventSource.readyState === EventSource.CONNECTING) {
+                            console.log('连接超时，关闭连接');
+                            this.forceCloseConnection();
+                            this.handleStreamingError('连接超时，请重试');
+                        }
+                    }, 30000); // 30秒超时
+                    
+                    this.currentEventSource.onopen = () => {
+                        console.log('EventSource连接已打开');
+                        clearTimeout(connectionTimeout);
+                    };
+                    
+                    this.currentEventSource.onmessage = (event) => {
+                        if (isFinished) {
+                            console.log('对话已完成，忽略后续消息');
+                            return;
+                        }
+                        
+                        clearTimeout(connectionTimeout);
+                        
+                        try {
+                            const data = JSON.parse(event.data);
+                            const content = data.result?.output?.content || '';
+                            const finishReason = data.result?.metadata?.finishReason;
+                            
+                            console.log('收到消息:', { content: content.substring(0, 50), finishReason });
+                            
+                            if (content) {
+                                accumulatedContent += content;
+                                const filteredContent = this.filterThinkTags(accumulatedContent);
+                                responseElement.textContent = filteredContent;
+                                this.scrollToBottom();
+                            }
+                            
+                            if (finishReason === 'STOP') {
+                                console.log('收到STOP信号，结束对话');
+                                isFinished = true;
+                                this.finishStreaming();
+                            }
+                            
+                        } catch (error) {
+                            console.error('解析消息失败:', error, 'Raw data:', event.data);
+                        }
+                    };
+                    
+                    this.currentEventSource.onerror = (error) => {
+                        console.error('EventSource错误:', error, 'readyState:', this.currentEventSource?.readyState);
+                        
+                        if (isFinished) {
+                            console.log('对话已完成，忽略错误');
+                            return;
+                        }
+                        
+                        clearTimeout(connectionTimeout);
+                        
+                        // 如果有内容或连接已关闭，认为是正常结束
+                        if (accumulatedContent.trim() || 
+                            (this.currentEventSource && this.currentEventSource.readyState === EventSource.CLOSED)) {
+                            console.log('连接正常关闭或已有内容');
+                            isFinished = true;
+                            this.finishStreaming();
+                        } else {
+                            console.log('连接异常，显示错误');
+                            this.handleStreamingError('连接服务器失败');
+                        }
+                    };
+                    
+                } catch (error) {
+                    console.error('创建EventSource失败:', error);
+                    this.handleStreamingError('无法连接到服务器');
+                }
+            }
+            
+            forceCloseConnection() {
+                if (this.currentEventSource) {
+                    console.log('强制关闭现有连接, readyState:', this.currentEventSource.readyState);
+                    try {
+                        this.currentEventSource.close();
+                    } catch (error) {
+                        console.error('关闭连接时出错:', error);
+                    }
+                    this.currentEventSource = null;
+                }
+                
+                // 移除所有打字指示器
+                const typingIndicators = document.querySelectorAll('.typing-indicator');
+                typingIndicators.forEach(indicator => indicator.remove());
+            }
+            
+            finishStreaming() {
+                console.log('结束流式输出');
+                
+                // 强制关闭连接
+                this.forceCloseConnection();
+                
+                // 重置状态
+                this.setStreamingState(false);
+                this.scrollToBottom();
+            }
+            
+            handleStreamingError(errorMessage) {
+                // 移除打字指示器
+                const typingIndicator = document.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                
+                // 显示错误消息
+                const currentResponse = document.getElementById('currentResponse');
+                if (currentResponse) {
+                    currentResponse.textContent = `❌ ${errorMessage}`;
+                    currentResponse.className += ' text-red-600';
+                }
+                
+                // 关闭连接
+                if (this.currentEventSource) {
+                    this.currentEventSource.close();
+                    this.currentEventSource = null;
+                }
+                
+                this.setStreamingState(false);
+                this.scrollToBottom();
+            }
+            
+            setStreamingState(isStreaming) {
+                this.isStreaming = isStreaming;
+                this.sendButton.disabled = isStreaming;
+                // 不禁用输入框，允许用户在AI输出时输入
+                // this.messageInput.disabled = isStreaming;
+                this.modelSelect.disabled = isStreaming;
+                
+                // 更新发送按钮状态
+                this.sendButton.disabled = false;
+                if (isStreaming) {
+                    this.sendButtonText.textContent = '打断';
+                    this.sendButtonLoading.classList.add('hidden');
+                    this.sendButtonText.classList.remove('hidden');
+                } else {
+                    this.sendButtonText.textContent = '发送';
+                    this.sendButtonText.classList.remove('hidden');
+                    this.sendButtonLoading.classList.add('hidden');
+                }
+            }
+            
+            scrollToBottom() {
+                setTimeout(() => {
+                    this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+                }, 100);
+            }
+            
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            filterThinkTags(text) {
+                // 移除 <think>...</think> 标签及其内容
+                // 使用正则表达式匹配think标签，支持多行内容
+                let filtered = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+                
+                // 清理可能残留的单独标签
+                filtered = filtered.replace(/<\/think>/gi, '');
+                filtered = filtered.replace(/<think>/gi, '');
+                
+                // 清理多余的空行
+                filtered = filtered.replace(/\n\s*\n/g, '\n');
+                
+                // 去掉开头和结尾的空白字符
+                return filtered.trim();
+            }
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatApp();
+        });
+        
+        // 页面卸载时关闭EventSource连接
+        window.addEventListener('beforeunload', () => {
+            if (window.chatApp && window.chatApp.currentEventSource) {
+                window.chatApp.currentEventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>

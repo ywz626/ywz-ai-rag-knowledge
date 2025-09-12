@@ -65,16 +65,6 @@
                 <version>5.13.0.202109080827-r</version>
             </dependency>
 
-            <dependency>
-                <groupId>cn.bugstack</groupId>
-                <artifactId>xfg-dev-tech-api</artifactId>
-                <version>1.0</version>
-            </dependency>
-            <dependency>
-                <groupId>cn.bugstack</groupId>
-                <artifactId>xfg-dev-tech-trigger</artifactId>
-                <version>1.0</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 

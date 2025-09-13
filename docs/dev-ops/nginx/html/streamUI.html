@@ -281,6 +281,8 @@
                 this.chats = []; // 存储所有聊天
                 this.currentChatId = null; // 当前选中的聊天ID
                 this.chatIdCounter = 1; // 聊天ID计数器
+                this.currentMemoryId = null; // 当前聊天的memoryId
+                this.currentMemoryId = null; // 当前聊天的memoryId
                 
                 this.initEventListeners();
                 this.loadRagTags();
@@ -430,17 +432,26 @@
                 
                 // 构建API URL
                 let apiUrl;
-                if (ragTag) {
-                    // 使用知识库的情况（如果后端支持）
-                    apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}`;
+                if (aiModelValue === 'openai') {
+                    // 使用通义千问模型，需要传入memoryId
+                    if (ragTag) {
+                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}&memoryId=${this.currentMemoryId}`;
+                    } else {
+                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=${this.currentMemoryId}`;
+                    }
                 } else {
-                    // 不使用知识库
-                    apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}`;
+                    // 使用ollama模型，不传memoryId
+                    if (ragTag) {
+                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}`;
+                    } else {
+                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}`;
+                    }
                 }
                 
                 console.log('开始新的流式请求:', apiUrl);
                 console.log('使用的知识库:', ragTag || '无');
                 console.log('使用的模型:', `${aiModelValue}/${aiModelModel}`);
+                console.log('当前memoryId:', this.currentMemoryId);
                 
                 try {
                     // 创建新的EventSource连接
@@ -704,11 +715,13 @@
                     id: this.chatIdCounter++,
                     title: '新对话',
                     messages: [],
-                    createdAt: new Date()
+                    createdAt: new Date(),
+                    memoryId: this.generateMemoryId()
                 };
                 
                 this.chats.push(chat);
                 this.currentChatId = chat.id;
+                this.currentMemoryId = chat.memoryId;
                 this.renderChatList();
                 this.updateChatTitle();
                 this.clearMessageList();
@@ -720,11 +733,13 @@
                     id: this.chatIdCounter++,
                     title: `新对话 ${this.chats.length + 1}`,
                     messages: [],
-                    createdAt: new Date()
+                    createdAt: new Date(),
+                    memoryId: this.generateMemoryId()
                 };
                 
                 this.chats.push(chat);
                 this.currentChatId = chat.id;
+                this.currentMemoryId = chat.memoryId;
                 this.renderChatList();
                 this.updateChatTitle();
                 this.clearMessageList();
@@ -812,6 +827,10 @@
                 }
                 
                 this.currentChatId = chatId;
+                const currentChat = this.chats.find(c => c.id === chatId);
+                if (currentChat) {
+                    this.currentMemoryId = currentChat.memoryId;
+                }
                 this.renderChatList();
                 this.updateChatTitle();
                 this.loadChatMessages();
@@ -904,6 +923,45 @@
                 if (hours < 24) return `${hours}小时前`;
                 if (days < 7) return `${days}天前`;
                 return date.toLocaleDateString();
+            }
+            
+            // 生成唯一的memoryId
+            generateMemoryId() {
+                return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            }
+            
+            // 生成唯一的memoryId
+            generateMemoryId() {
+                return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            }
+            
+            // 保存用户输入到记忆库
+            async saveUserInput(memoryId, message) {
+                try {
+                    console.log('保存用户输入到记忆库:', { memoryId, message });
+                    
+                    const response = await fetch('http://localhost:8090/api/v1/openai/saveUserInput', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            memoryId: memoryId,
+                            message: message
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('用户输入保存结果:', result);
+                    
+                } catch (error) {
+                    console.error('保存用户输入失败:', error);
+                    // 不阻断用户的对话流程，只记录错误
+                }
             }
             
             // 打开知识库上传页面

@@ -48,7 +48,10 @@ public class OllamaController implements IAiService {
      */
     @RequestMapping(value = "generate_stream", method = RequestMethod.GET)
     @Override
-    public Flux<ChatResponse> generateStream(@RequestParam String model, @RequestParam String message,@RequestParam(required = false,defaultValue = "") String ragTag) {
+    public Flux<ChatResponse> generateStreamForMemory(@RequestParam String model,
+                                             @RequestParam String message,
+                                             @RequestParam(required = false,defaultValue = "") String ragTag,
+                                             @RequestParam String memoryId) {
 
         if(Objects.equals(ragTag, "")){
             return chatClient.stream(new Prompt(message, OllamaOptions.create().withModel(model)));

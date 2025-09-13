@@ -51,6 +51,7 @@ public class RagController implements IRagService {
     @RequestMapping(value = "query_rag_tag_list", method = RequestMethod.GET)
     public Response<List<String>> queryRagTagList() {
         RList<String> ragTagList = redissonClient.getList("ragTag");
+        log.info("使用查询知识库列表功能");
         return Response.<List<String>>builder().code("0000").info("调用成功").data(ragTagList).build();
     }
 

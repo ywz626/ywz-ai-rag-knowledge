@@ -4,6 +4,7 @@ package com.ywzai.api;
 import com.ywzai.api.response.Response;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -17,5 +18,7 @@ public interface IRagService {
     Response<List<String>> queryRagTagList();
 
     Response<String> uploadFile(String ragTag, List<MultipartFile> files);
+
+    Response<String> analyzeGitRepository(String repoUrl) throws IOException;
 
 }

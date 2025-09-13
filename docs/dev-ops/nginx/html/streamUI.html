@@ -75,6 +75,12 @@
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-semibold text-gray-800">聊天列表</h2>
                 <div class="flex space-x-2">
+                    <button id="addCodeRepoBtn" class="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm flex items-center space-x-1" title="添加Git代码库">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                        </svg>
+                        <span>代码库</span>
+                    </button>
                     <button id="uploadKnowledgeBtn" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm flex items-center space-x-1" title="上传知识库文件">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
@@ -169,6 +175,77 @@
             </div>
         </main>
     </div>
+    
+    <!-- Git代码库添加弹窗 -->
+    <div id="codeRepoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4 transform transition-all duration-300 scale-95">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                    </svg>
+                    添加Git代码库
+                </h3>
+                <button id="closeModalBtn" title="关闭弹窗" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mb-6">
+                <label for="repoUrlInput" class="block text-sm font-medium text-gray-700 mb-3">
+                    Git仓库URL
+                </label>
+                <input 
+                    type="url" 
+                    id="repoUrlInput" 
+                    placeholder="请输入Git仓库地址（如：https://github.com/user/repo.git）" 
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                >
+                <div class="mt-2 text-xs text-gray-500">
+                    支持 GitHub、GitLab、Gitee 等公开仓库
+                </div>
+            </div>
+            
+            <!-- 进度显示 -->
+            <div id="repoProgress" class="mb-4 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-600">正在克隆和分析代码库...</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="repoProgressBar" class="bg-purple-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- 状态信息 -->
+            <div id="repoStatus" class="mb-4 hidden">
+                <div class="p-3 rounded-lg text-sm"></div>
+            </div>
+            
+            <div class="flex space-x-3">
+                <button 
+                    id="cancelRepoBtn" 
+                    class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200"
+                >
+                    取消
+                </button>
+                <button 
+                    id="confirmRepoBtn" 
+                    class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="confirmRepoBtnText">添加代码库</span>
+                    <span id="confirmRepoBtnLoading" class="hidden flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        处理中...
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
         class ChatApp {
@@ -183,9 +260,22 @@
                 this.ragTagSelect = document.getElementById('ragTagSelect');
                 this.newChatBtn = document.getElementById('newChatBtn');
                 this.uploadKnowledgeBtn = document.getElementById('uploadKnowledgeBtn');
+                this.addCodeRepoBtn = document.getElementById('addCodeRepoBtn');
                 this.refreshRagBtn = document.getElementById('refreshRagBtn');
                 this.chatList = document.getElementById('chatList');
                 this.currentChatTitle = document.getElementById('currentChatTitle');
+                
+                // 代码库弹窗元素
+                this.codeRepoModal = document.getElementById('codeRepoModal');
+                this.repoUrlInput = document.getElementById('repoUrlInput');
+                this.closeModalBtn = document.getElementById('closeModalBtn');
+                this.cancelRepoBtn = document.getElementById('cancelRepoBtn');
+                this.confirmRepoBtn = document.getElementById('confirmRepoBtn');
+                this.confirmRepoBtnText = document.getElementById('confirmRepoBtnText');
+                this.confirmRepoBtnLoading = document.getElementById('confirmRepoBtnLoading');
+                this.repoProgress = document.getElementById('repoProgress');
+                this.repoProgressBar = document.getElementById('repoProgressBar');
+                this.repoStatus = document.getElementById('repoStatus');
                 
                 this.isStreaming = false;
                 this.currentEventSource = null;
@@ -221,10 +311,18 @@
                     this.openUploadPage();
                 });
                 
+                // 添加代码库按钮
+                this.addCodeRepoBtn.addEventListener('click', () => {
+                    this.openCodeRepoModal();
+                });
+                
                 // 刷新知识库列表按钮
                 this.refreshRagBtn.addEventListener('click', () => {
                     this.loadRagTags();
                 });
+                
+                // 代码库弹窗事件
+                this.initCodeRepoModalEvents();
                 
                 // 输入框输入事件
                 this.messageInput.addEventListener('input', (e) => {
@@ -805,6 +903,202 @@
             openUploadPage() {
                 // 在新窗口打开上传页面
                 window.open('./upload.html', '_blank');
+            }
+            
+            // 打开代码库添加弹窗
+            openCodeRepoModal() {
+                this.codeRepoModal.classList.remove('hidden');
+                this.codeRepoModal.querySelector('.transform').classList.remove('scale-95');
+                this.codeRepoModal.querySelector('.transform').classList.add('scale-100');
+                this.repoUrlInput.focus();
+                this.resetCodeRepoModal();
+            }
+            
+            // 关闭代码库弹窗
+            closeCodeRepoModal() {
+                this.codeRepoModal.querySelector('.transform').classList.remove('scale-100');
+                this.codeRepoModal.querySelector('.transform').classList.add('scale-95');
+                setTimeout(() => {
+                    this.codeRepoModal.classList.add('hidden');
+                }, 300);
+            }
+            
+            // 重置弹窗状态
+            resetCodeRepoModal() {
+                this.repoUrlInput.value = '';
+                this.repoProgress.classList.add('hidden');
+                this.repoStatus.classList.add('hidden');
+                this.confirmRepoBtn.disabled = false;
+                this.confirmRepoBtnText.classList.remove('hidden');
+                this.confirmRepoBtnLoading.classList.add('hidden');
+            }
+            
+            // 初始化代码库弹窗事件
+            initCodeRepoModalEvents() {
+                // 关闭按钮
+                this.closeModalBtn.addEventListener('click', () => {
+                    this.closeCodeRepoModal();
+                });
+                
+                // 取消按钮
+                this.cancelRepoBtn.addEventListener('click', () => {
+                    this.closeCodeRepoModal();
+                });
+                
+                // 确认按钮
+                this.confirmRepoBtn.addEventListener('click', () => {
+                    this.addCodeRepository();
+                });
+                
+                // 输入框回车事件
+                this.repoUrlInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !this.confirmRepoBtn.disabled) {
+                        this.addCodeRepository();
+                    }
+                });
+                
+                // 点击弹窗背景关闭
+                this.codeRepoModal.addEventListener('click', (e) => {
+                    if (e.target === this.codeRepoModal) {
+                        this.closeCodeRepoModal();
+                    }
+                });
+            }
+            
+            // 添加代码仓库
+            async addCodeRepository() {
+                const repoUrl = this.repoUrlInput.value.trim();
+                
+                if (!repoUrl) {
+                    this.showRepoStatus('error', '请输入Git仓库URL');
+                    return;
+                }
+                
+                // 简单的URL验证
+                if (!this.isValidRepoUrl(repoUrl)) {
+                    this.showRepoStatus('error', '请输入有效的Git仓库URL');
+                    return;
+                }
+                
+                // 设置加载状态
+                this.setRepoLoadingState(true);
+                this.showRepoProgress();
+                
+                try {
+                    console.log('开始添加代码仓库:', repoUrl);
+                    
+                    const formData = new FormData();
+                    formData.append('repoUrl', repoUrl);
+                    
+                    const response = await fetch('http://localhost:8090/api/v1/rag/analyze_git_repository', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('代码库添加结果:', result);
+                    
+                    if (result.code === '0000') {
+                        this.showRepoStatus('success', '代码库添加成功！知识库已更新。');
+                        
+                        // 刷新知识库列表
+                        this.loadRagTags();
+                        
+                        // 2秒后关闭弹窗
+                        setTimeout(() => {
+                            this.closeCodeRepoModal();
+                        }, 2000);
+                    } else {
+                        this.showRepoStatus('error', `添加失败: ${result.info || '未知错误'}`);
+                    }
+                } catch (error) {
+                    console.error('添加代码仓库失败:', error);
+                    this.showRepoStatus('error', '添加失败，请检查网络连接和仓库URL');
+                } finally {
+                    this.setRepoLoadingState(false);
+                    this.hideRepoProgress();
+                }
+            }
+            
+            // 验证仓库URL
+            isValidRepoUrl(url) {
+                const gitUrlPattern = /^https?:\/\/.+\.(git|com|org|net)(\/.*)?$/i;
+                return gitUrlPattern.test(url);
+            }
+            
+            // 设置加载状态
+            setRepoLoadingState(isLoading) {
+                this.confirmRepoBtn.disabled = isLoading;
+                
+                if (isLoading) {
+                    this.confirmRepoBtnText.classList.add('hidden');
+                    this.confirmRepoBtnLoading.classList.remove('hidden');
+                } else {
+                    this.confirmRepoBtnText.classList.remove('hidden');
+                    this.confirmRepoBtnLoading.classList.add('hidden');
+                }
+            }
+            
+            // 显示进度
+            showRepoProgress() {
+                this.repoProgress.classList.remove('hidden');
+                // 模拟进度
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += Math.random() * 10;
+                    if (progress >= 85) {
+                        progress = 85;
+                        clearInterval(interval);
+                    }
+                    this.repoProgressBar.style.width = progress + '%';
+                }, 500);
+                
+                this.progressInterval = interval;
+            }
+            
+            // 隐藏进度
+            hideRepoProgress() {
+                this.repoProgressBar.style.width = '100%';
+                setTimeout(() => {
+                    this.repoProgress.classList.add('hidden');
+                    this.repoProgressBar.style.width = '0%';
+                }, 1000);
+                
+                if (this.progressInterval) {
+                    clearInterval(this.progressInterval);
+                }
+            }
+            
+            // 显示状态信息
+            showRepoStatus(type, message) {
+                this.repoStatus.classList.remove('hidden');
+                const statusDiv = this.repoStatus.querySelector('div');
+                
+                let bgColor, textColor, icon;
+                switch (type) {
+                    case 'success':
+                        bgColor = 'bg-green-100';
+                        textColor = 'text-green-800';
+                        icon = '✓';
+                        break;
+                    case 'error':
+                        bgColor = 'bg-red-100';
+                        textColor = 'text-red-800';
+                        icon = '✗';
+                        break;
+                    case 'info':
+                        bgColor = 'bg-blue-100';
+                        textColor = 'text-blue-800';
+                        icon = 'i';
+                        break;
+                }
+                
+                statusDiv.className = `p-3 rounded-lg text-sm ${bgColor} ${textColor}`;
+                statusDiv.innerHTML = `${icon} ${message}`;
             }
             
             addAssistantMessage(content = null, saveToChat = true) {

@@ -48,9 +48,6 @@ public class OpenAiController implements IAiService {
                                                       @RequestParam String message,
                                                       @RequestParam(required = false, defaultValue = "") String ragTag,
                                                       @RequestParam String memoryId) {
-        if (Objects.equals(ragTag, "")) {
-            return chatClient.stream(new Prompt(message, OllamaOptions.create().withModel(model)));
-        }
 
         String SYSTEM_PROMPT_RAG = """
                 Use the information from the DOCUMENTS section to provide accurate answers but act as if you knew this information innately.

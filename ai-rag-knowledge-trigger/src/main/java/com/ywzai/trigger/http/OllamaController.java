@@ -52,10 +52,6 @@ public class OllamaController implements IAiService {
                                              @RequestParam String message,
                                              @RequestParam(required = false,defaultValue = "") String ragTag,
                                              @RequestParam String memoryId) {
-
-        if(Objects.equals(ragTag, "")){
-            return chatClient.stream(new Prompt(message, OllamaOptions.create().withModel(model)));
-        }
         // 系统提示
         String SYSTEM_PROMPT = """
                 Use the information from the DOCUMENTS section to provide accurate answers but act as if you knew this information innately.

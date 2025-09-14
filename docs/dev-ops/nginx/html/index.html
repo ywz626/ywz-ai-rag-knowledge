@@ -440,11 +440,11 @@
                         apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=${this.currentMemoryId}`;
                     }
                 } else {
-                    // 使用ollama模型，不传memoryId
+                    // ollama模型暂时不可用，使用openai接口但不传memoryId
                     if (ragTag) {
-                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}`;
+                        apiUrl = `http://localhost:8090/api/v1/openai/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}&memoryId=`;
                     } else {
-                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}`;
+                        apiUrl = `http://localhost:8090/api/v1/openai/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=`;
                     }
                 }
                 
@@ -482,10 +482,16 @@
                         
                         try {
                             const data = JSON.parse(event.data);
-                            const content = data.result?.output?.content || '';
-                            const finishReason = data.result?.metadata?.finishReason;
                             
-                            console.log('收到消息:', { content: content.substring(0, 50), finishReason });
+                            // 根据模型类型解析不同的数据结构
+                            let content = '';
+                            let finishReason = '';
+                            
+                            // 所有模型都使用相同的数据结构（通过openai接口）
+                            content = data.result?.output?.text || '';
+                            finishReason = data.result?.metadata?.finishReason;
+                            
+                            console.log('收到消息:', { content: content.substring(0, 50), finishReason, model: aiModelValue });
                             
                             if (content) {
                                 accumulatedContent += content;

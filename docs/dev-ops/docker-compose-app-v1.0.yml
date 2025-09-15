@@ -1,0 +1,122 @@
+version: '3.8'
+# docker-compose -f docker-compose-app-v1.0.yml up -d
+services:
+  # 部署前端项目
+  nginx:
+    image: registry.cn-hangzhou.aliyuncs.com/xfg-studio/nginx:latest
+    container_name: nginx
+    restart: always
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx/html:/usr/share/nginx/html
+      - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf/conf.d:/etc/nginx/conf.d
+    privileged: true
+  # ai-rag-knowledge
+  ai-rag-knowledge-app:
+    image: fuzhengwei/ai-rag-knowledge-app:1.2
+    container_name: ai-rag-knowledge-app
+    restart: on-failure
+    ports:
+      - "8090:8090"
+    environment:
+      - TZ=PRC
+      - SERVER_PORT=8090
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://vector_db:5432/ai-rag-knowledge
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_AI_OLLAMA_BASE_URL=http://81.70.145.235:11434
+      - SPRING_AI_OLLAMA_EMBEDDING_OPTIONS_NUM_BATCH=512
+      - SPRING_AI_OLLAMA_MODEL=nomic-embed-text
+      - SPRING_AI_OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode
+      - SPRING_AI_OPENAI_API_KEY=sk-804a287b650440af8a95f980c932049a
+      - SPRING_AI_OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
+      - SPRING_AI_RAG_EMBED=nomic-embed-text
+      - REDIS_SDK_CONFIG_HOST=redis
+      - REDIS_SDK_CONFIG_PORT=6379
+    volumes:
+      - ./log:/data/log
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - my-network
+
+  ollama:
+    image: registry.cn-hangzhou.aliyuncs.com/xfg-studio/ollama:0.5.10
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+  redis:
+    image: registry.cn-hangzhou.aliyuncs.com/xfg-studio/redis:6.2
+    container_name: redis
+    restart: always
+    hostname: redis
+    privileged: true
+    ports:
+      - 16379:6379
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - my-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  # RedisAdmin https://github.com/joeferner/redis-commander
+  # 账密 admin/admin
+  redis-admin:
+    image: registry.cn-hangzhou.aliyuncs.com/xfg-studio/redis-commander:0.8.0
+    container_name: redis-admin
+    hostname: redis-commander
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin
+      - LANG=C.UTF-8
+      - LANGUAGE=C.UTF-8
+      - LC_ALL=C.UTF-8
+    networks:
+      - my-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  vector_db:
+    image: registry.cn-hangzhou.aliyuncs.com/xfg-studio/pgvector:v0.5.0
+    container_name: vector_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ai-rag-knowledge
+      - PGPASSWORD=postgres
+    volumes:
+      - ./pgvector/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - '15432:5432'
+    healthcheck:
+      test: "pg_isready -U postgres -d ai-rag-knowledge"
+      interval: 2s
+      timeout: 20s
+      retries: 10
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge

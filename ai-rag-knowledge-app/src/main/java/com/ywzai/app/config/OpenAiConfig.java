@@ -25,10 +25,6 @@ public class OpenAiConfig {
     private String model;
 
 
-    @Bean
-    public OllamaApi ollamaApi(@Value("${spring.ai.ollama.base-url}") String baseUrl) {
-        return new OllamaApi(baseUrl);
-    }
 
 
     @Bean

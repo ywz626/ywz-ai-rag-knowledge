@@ -49,3 +49,4 @@ build/
 /ai-rag-knowledge-app/data/log/log_info.log
 /.idea/
 /.idea/
+/ai-rag-knowledge-app/data/

@@ -435,16 +435,16 @@
                 if (aiModelValue === 'openai') {
                     // 使用通义千问模型，需要传入memoryId
                     if (ragTag) {
-                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}&memoryId=${this.currentMemoryId}`;
+                        apiUrl = `http://81.70.145.235:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}&memoryId=${this.currentMemoryId}`;
                     } else {
-                        apiUrl = `http://localhost:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=${this.currentMemoryId}`;
+                        apiUrl = `http://81.70.145.235:8090/api/v1/${aiModelValue}/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=${this.currentMemoryId}`;
                     }
                 } else {
                     // ollama模型暂时不可用，使用openai接口但不传memoryId
                     if (ragTag) {
-                        apiUrl = `http://localhost:8090/api/v1/openai/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}&memoryId=`;
+                        apiUrl = `http://81.70.145.235:8090/api/v1/openai/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&ragTag=${encodeURIComponent(ragTag)}&memoryId=`;
                     } else {
-                        apiUrl = `http://localhost:8090/api/v1/openai/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=`;
+                        apiUrl = `http://81.70.145.235:8090/api/v1/openai/generate_stream?message=${encodeURIComponent(message)}&model=${encodeURIComponent(aiModelModel)}&memoryId=`;
                     }
                 }
                 
@@ -655,7 +655,7 @@
             async loadRagTags() {
                 try {
                     console.log('正在加载知识库列表...');
-                    const response = await fetch('http://localhost:8090/api/v1/rag/query_rag_tag_list');
+                    const response = await fetch('http://81.70.145.235:8090/api/v1/rag/query_rag_tag_list');
                     
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -946,7 +946,7 @@
                 try {
                     console.log('保存用户输入到记忆库:', { memoryId, message });
                     
-                    const response = await fetch('http://localhost:8090/api/v1/openai/saveUserInput', {
+                    const response = await fetch('http://81.70.145.235:8090/api/v1/openai/saveUserInput', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1061,7 +1061,7 @@
                     const formData = new FormData();
                     formData.append('repoUrl', repoUrl);
                     
-                    const response = await fetch('http://localhost:8090/api/v1/rag/analyze_git_repository', {
+                    const response = await fetch('http://81.70.145.235:8090/api/v1/rag/analyze_git_repository', {
                         method: 'POST',
                         body: formData
                     });

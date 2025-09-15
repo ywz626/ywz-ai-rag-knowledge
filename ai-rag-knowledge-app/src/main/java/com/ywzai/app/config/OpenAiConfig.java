@@ -6,7 +6,6 @@ import org.springframework.ai.chat.client.DefaultChatClientBuilder;
 import org.springframework.ai.chat.client.observation.ChatClientObservationConvention;
 
 import org.springframework.ai.document.MetadataMode;
-import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
@@ -24,11 +23,6 @@ public class OpenAiConfig {
     @Value("${spring.ai.openai.embedding.options.model}")
     private String model;
 
-
-    @Bean
-    public OllamaApi ollamaApi(@Value("${spring.ai.ollama.base-url}") String baseUrl) {
-        return new OllamaApi(baseUrl);
-    }
 
 
     @Bean

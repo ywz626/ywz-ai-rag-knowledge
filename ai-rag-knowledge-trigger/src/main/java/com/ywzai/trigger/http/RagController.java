@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.redisson.api.RList;
 import org.redisson.api.RedissonClient;
 import org.springframework.ai.document.Document;
@@ -151,6 +150,63 @@ public class RagController implements IRagService {
                 .sum();
             
             log.info("文件 {} 包含 {} 个文档，总字符数: {}", file.getOriginalFilename(), documents.size(), totalCharacters);
+            
+            // 调试：检查文档内容
+            for (int i = 0; i < documents.size(); i++) {
+                Document doc = documents.get(i);
+                String content = doc.getText();
+                log.info("文档 {} 内容长度: {}，前100个字符: [{}]", 
+                        i, content.length(), 
+                        content.length() > 100 ? content.substring(0, 100) : content);
+                log.info("文档 {} 元数据: {}", i, doc.getMetadata());
+            }
+            
+            // 如果所有文档内容都为空，尝试直接读取文件内容
+            if (totalCharacters == 0) {
+                log.warn("Tika解析结果为空，尝试直接读取文件内容...");
+                try {
+                    String rawContent = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    log.info("直接读取文件长度: {}，前200个字符: [{}]", 
+                            rawContent.length(), 
+                            rawContent.length() > 200 ? rawContent.substring(0, 200) : rawContent);
+                    
+                    // 尝试其他编码
+                    if (rawContent.trim().isEmpty() || rawContent.contains("�")) {
+                        log.info("UTF-8编码可能有问题，尝试GBK编码...");
+                        String gbkContent = new String(file.getBytes(), java.nio.charset.Charset.forName("GBK"));
+                        log.info("GBK编码读取文件长度: {}，前200个字符: [{}]", 
+                                gbkContent.length(), 
+                                gbkContent.length() > 200 ? gbkContent.substring(0, 200) : gbkContent);
+                        
+                        // 如果GBK编码读取成功，使用这个内容
+                        if (!gbkContent.trim().isEmpty() && !gbkContent.contains("�")) {
+                            log.info("使用GBK编码成功读取文件内容");
+                            Document manualDoc = new Document(gbkContent);
+                            manualDoc.getMetadata().put("source", file.getOriginalFilename());
+                            manualDoc.getMetadata().put("encoding", "GBK");
+                            documents = List.of(manualDoc);
+                            totalCharacters = gbkContent.length();
+                        }
+                    } else if (!rawContent.trim().isEmpty()) {
+                        log.info("使用UTF-8编码成功读取文件内容");
+                        Document manualDoc = new Document(rawContent);
+                        manualDoc.getMetadata().put("source", file.getOriginalFilename());
+                        manualDoc.getMetadata().put("encoding", "UTF-8");
+                        documents = List.of(manualDoc);
+                        totalCharacters = rawContent.length();
+                    }
+                } catch (Exception e) {
+                    log.error("直接读取文件内容失败: {}", file.getOriginalFilename(), e);
+                }
+            }
+            
+            // 再次检查是否有内容
+            if (totalCharacters == 0) {
+                log.warn("文件 {} 经过多种方式解析后仍然无内容，跳过处理", file.getOriginalFilename());
+                return 0;
+            }
+            
+            log.info("最终处理：文件 {} 包含 {} 个文档，总字符数: {}", file.getOriginalFilename(), documents.size(), totalCharacters);
             
             // 流式分割处理大文档
             List<Document> allSplitDocuments = new ArrayList<>(); 

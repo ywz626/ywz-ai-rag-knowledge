@@ -121,24 +121,9 @@
 <!--        </dependency>-->
     </dependencies>
     <!-- ai-rag-knowledge-app/pom.xml -->
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <!-- 不需要写 version，父 POM 已管理 -->
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 
     <build>
+        <finalName>ai-rag-knowledge-app</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

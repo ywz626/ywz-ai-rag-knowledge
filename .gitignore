@@ -50,3 +50,6 @@ build/
 /.idea/
 /.idea/
 /ai-rag-knowledge-app/data/
+/ai-rag-knowledge-app/Dockerfile
+/ai-rag-knowledge-app/build.sh
+/ai-rag-knowledge-app/push.sh

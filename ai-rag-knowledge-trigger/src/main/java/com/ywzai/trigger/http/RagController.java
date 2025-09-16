@@ -24,6 +24,12 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * @Author: ywz
@@ -62,20 +68,194 @@ public class RagController implements IRagService {
                     .info("文件列表不能为空")
                     .build();
         }
-        log.info("上传数据库开始！！！");
-        for (MultipartFile file : files) {
-            TikaDocumentReader tikaDocumentReader = new TikaDocumentReader(file.getResource());
-            List<Document> documents = tikaDocumentReader.get();
-            List<Document> documentsSplitter = tokenTextSplitter.apply(documents);
-            documentsSplitter.forEach(document -> document.getMetadata().put("knowledge", ragTag));
-            pgVectorStore.add(documentsSplitter);
+        
+        log.info("开始流式上传文件到向量数据库，文件数量: {}, 标签: {}", files.size(), ragTag);
+        
+        try {
+            // 使用线程池处理文件上传，限制并发数避免资源耗尽
+            ExecutorService executor = Executors.newFixedThreadPool(Math.min(files.size(), 3));
+            AtomicInteger processedCount = new AtomicInteger(0);
+            AtomicInteger totalSegments = new AtomicInteger(0);
+            
+            List<CompletableFuture<Void>> futures = files.stream()
+                .map(file -> CompletableFuture.runAsync(() -> {
+                    try {
+                        int segments = processFileWithSpringAI(file, ragTag);
+                        totalSegments.addAndGet(segments);
+                        int processed = processedCount.incrementAndGet();
+                        log.info("文件处理进度: {}/{}, 当前文件: {}, 生成片段数: {}", 
+                               processed, files.size(), file.getOriginalFilename(), segments);
+                    } catch (Exception e) {
+                        log.error("处理文件失败: {}", file.getOriginalFilename(), e);
+                        throw new RuntimeException("文件处理失败: " + file.getOriginalFilename(), e);
+                    }
+                }, executor))
+                .toList();
+            
+            // 等待所有文件处理完成
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            executor.shutdown();
+            
+            // 更新Redis中的标签列表
             RList<String> ragTagList = redissonClient.getList("ragTag");
             if (!ragTagList.contains(ragTag)) {
                 ragTagList.add(ragTag);
             }
+            
+            log.info("所有文件流式上传完成！总计处理 {} 个文件，生成 {} 个文本片段", files.size(), totalSegments.get());
+            return Response.<String>builder()
+                    .code("0000")
+                    .info(String.format("上传成功，处理了 %d 个文件，生成 %d 个文本片段", files.size(), totalSegments.get()))
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("文件上传过程中发生错误", e);
+            return Response.<String>builder()
+                    .code("500")
+                    .info("文件上传失败: " + e.getMessage())
+                    .build();
         }
-        log.info("上传数据库结束！！！");
-        return Response.<String>builder().code("0000").info("调用成功").build();
+    }
+    
+    /**
+     * 使用Spring AI流式处理单个文件
+     * 
+     * @param file 上传的文件
+     * @param ragTag 知识库标签
+     * @return 处理的文本片段数量
+     * @throws Exception 文件处理异常
+     */
+    private int processFileWithSpringAI(MultipartFile file, String ragTag) throws Exception {
+        log.info("开始流式处理文件: {}, 大小: {} MB, 文件类型: {}", 
+                file.getOriginalFilename(), 
+                file.getSize() / (1024.0 * 1024.0),
+                file.getContentType());
+        
+        try {
+            // 使用Spring AI的TikaDocumentReader解析文档
+            TikaDocumentReader tikaDocumentReader = new TikaDocumentReader(file.getResource());
+            List<Document> documents = tikaDocumentReader.get();
+            
+            if (documents.isEmpty()) {
+                log.warn("文件 {} 解析后无内容，可能是不支持的格式或空文件", file.getOriginalFilename());
+                return 0;
+            }
+            
+            // 成功解析文件后记录日志
+            String fileExtension = file.getOriginalFilename().toLowerCase().substring(file.getOriginalFilename().lastIndexOf('.') + 1);
+            log.info("成功解析 {} 格式文件: {}", fileExtension.toUpperCase(), file.getOriginalFilename());
+            
+            // 获取文档总字符数，用于估算处理批次
+            int totalCharacters = documents.stream()
+                .mapToInt(doc -> doc.getText().length())
+                .sum();
+            
+            log.info("文件 {} 包含 {} 个文档，总字符数: {}", file.getOriginalFilename(), documents.size(), totalCharacters);
+            
+            // 流式分割处理大文档
+            List<Document> allSplitDocuments = new ArrayList<>(); 
+            int processedChars = 0;
+            
+            for (int i = 0; i < documents.size(); i++) {
+                Document doc = documents.get(i);
+                
+                // 如果单个文档太大，需要分批处理
+                if (doc.getText().length() > 500000) { // 超过50万字符的文档需要分批
+                    List<Document> batchSplitDocs = proceseLargeDocumentInBatches(doc, ragTag, file.getOriginalFilename());
+                    allSplitDocuments.addAll(batchSplitDocs);
+                } else {
+                    // 普通大小的文档直接分割
+                    List<Document> splitDocs = tokenTextSplitter.apply(List.of(doc));
+                    allSplitDocuments.addAll(splitDocs);
+                }
+                
+                processedChars += doc.getText().length();
+                
+                // 每处理一定数量的字符就输出进度
+                if (i % 10 == 0 || i == documents.size() - 1) {
+                    double progress = (double) processedChars / totalCharacters * 100;
+                    log.debug("文件 {} 文档分割进度: {:.1f}%, 已生成片段: {}", 
+                             file.getOriginalFilename(), progress, allSplitDocuments.size());
+                }
+            }
+            
+            // 批量添加元数据并存储到向量数据库
+            int batchSize = 10; // 每批10个文档片段
+            int totalBatches = (allSplitDocuments.size() + batchSize - 1) / batchSize;
+            
+            for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+                int start = batchIndex * batchSize;
+                int end = Math.min(start + batchSize, allSplitDocuments.size());
+                
+                List<Document> batchDocuments = allSplitDocuments.subList(start, end);
+                
+                // 为每个文档片段添加元数据
+                final int currentBatchIndex = batchIndex; // 创建最终变量供 Lambda 使用
+                batchDocuments.forEach(document -> {
+                    document.getMetadata().put("knowledge", ragTag);
+                    document.getMetadata().put("filename", file.getOriginalFilename());
+                    document.getMetadata().put("fileSize", String.valueOf(file.getSize()));
+                    document.getMetadata().put("uploadTime", String.valueOf(System.currentTimeMillis()));
+                    document.getMetadata().put("batchIndex", String.valueOf(currentBatchIndex));
+                });
+                
+                // 存储到Spring AI PgVector
+                try {
+                    pgVectorStore.add(batchDocuments);
+                    log.debug("成功存储批次 {}/{}, 文档片段数: {}", batchIndex + 1, totalBatches, batchDocuments.size());
+                } catch (Exception e) {
+                    log.error("存储批次 {}/{} 失败", batchIndex + 1, totalBatches, e);
+                    throw new RuntimeException("向量存储失败", e);
+                }
+                
+                // 适当延迟，避免对数据库造成过大压力
+                if (batchIndex < totalBatches - 1) {
+                    Thread.sleep(50); // 50ms延迟
+                }
+            }
+            
+            log.info("文件 {} 流式处理完成，总计 {} 个文本片段", file.getOriginalFilename(), allSplitDocuments.size());
+            return allSplitDocuments.size();
+            
+        } catch (Exception e) {
+            log.error("流式处理文件失败: {}", file.getOriginalFilename(), e);
+            throw new Exception("文件处理失败: " + file.getOriginalFilename(), e);
+        }
+    }
+    
+    /**
+     * 分批处理超大文档
+     * 
+     * @param largeDoc 大文档
+     * @param ragTag 知识库标签
+     * @param filename 文件名
+     * @return 分割后的文档列表
+     */
+    private List<Document> proceseLargeDocumentInBatches(Document largeDoc, String ragTag, String filename) {
+        List<Document> allSplitDocs = new ArrayList<>();
+        String content = largeDoc.getText();
+        int chunkSize = 400000; // 每次处理40万字符
+        
+        log.info("处理超大文档: {}, 总长度: {} 字符，分为 {} 个批次", 
+                filename, content.length(), (content.length() + chunkSize - 1) / chunkSize);
+        
+        for (int start = 0; start < content.length(); start += chunkSize) {
+            int end = Math.min(start + chunkSize, content.length());
+            String chunkContent = content.substring(start, end);
+            
+            // 创建临时文档进行分割
+            Document chunkDoc = new Document(chunkContent, new HashMap<>(largeDoc.getMetadata()));
+            chunkDoc.getMetadata().put("chunkStart", String.valueOf(start));
+            chunkDoc.getMetadata().put("chunkEnd", String.valueOf(end));
+            
+            // 对chunk进行分割
+            List<Document> splitChunk = tokenTextSplitter.apply(List.of(chunkDoc));
+            allSplitDocs.addAll(splitChunk);
+            
+            log.debug("已处理文档块: {}-{}, 生成片段: {}", start, end, splitChunk.size());
+        }
+        
+        return allSplitDocs;
     }
 
     @Override

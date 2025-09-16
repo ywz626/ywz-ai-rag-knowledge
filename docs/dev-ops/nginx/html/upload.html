@@ -106,7 +106,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                         </svg>
                         <p class="text-lg font-medium text-gray-700 mb-2">点击或拖放文件到此处</p>
-                        <p class="text-sm text-gray-500">支持 .md、.txt、.sql 格式文件</p>
+                        <p class="text-sm text-gray-500">支持 .md、.txt、.sql、.epub 格式文件</p>
                         <p class="text-xs text-gray-400 mt-2">可同时上传多个文件</p>
                     </div>
                 </div>
@@ -117,7 +117,7 @@
                     id="fileInput" 
                     title="选择要上传的文件"
                     multiple 
-                    accept=".md,.txt,.sql" 
+                    accept=".md,.txt,.sql,.epub" 
                     class="hidden"
                 >
             </div>
@@ -175,7 +175,7 @@
             </h3>
             <div class="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
                 <div class="space-y-2">
-                    <p>• 支持的文件格式：.md、.txt、.sql</p>
+                    <p>• 支持的文件格式：.md、.txt、.sql、.epub</p>
                     <p>• 可同时上传多个文件</p>
                     <p>• 建议单个文件不超过 10MB</p>
                 </div>
@@ -251,7 +251,7 @@
             handleFiles(files) {
                 const validFiles = Array.from(files).filter(file => {
                     const extension = file.name.toLowerCase().split('.').pop();
-                    return ['md', 'txt', 'sql'].includes(extension);
+                    return ['md', 'txt', 'sql', 'epub'].includes(extension);
                 });
                 
                 if (validFiles.length !== files.length) {
@@ -319,6 +319,10 @@
                     case 'txt':
                         return `<svg class="${iconClass} text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                        </svg>`;
+                    case 'epub':
+                        return `<svg class="${iconClass} text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M18,22a2,2 0 0,0 2,-2V4a2,2 0 0,0-2,-2H6A2,2 0 0,0 4,4V20a2,2 0 0,0 2,2H18M6,4H18V20H6V4M7,19V17H9V19H7M11,19V17H13V19H11M15,19V17H17V19H15M7,15V13H9V15H7M11,15V13H13V15H11M15,15V13H17V15H15M7,11V9H9V11H7M11,11V9H13V11H11M15,11V9H17V11H15"/>
                         </svg>`;
                     case 'sql':
                         return `<svg class="${iconClass} text-orange-600" fill="currentColor" viewBox="0 0 24 24">
